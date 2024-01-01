@@ -32,7 +32,7 @@ public class FraudCheckService {
 
     private String getCustomerEmail(int customerId) {
         return restTemplate.getForObject(
-                        "http://localhost:8080/api/v1/customers/{customerId}",
+                        "http://CUSTOMER/api/v1/customers/{customerId}",
                         CustomerResponse.class,
                         customerId
                 )
