@@ -13,7 +13,6 @@
         <module>fraud</module>
         <module>eureka-server</module>
         <module>notification</module>
-        <module>notification</module>
         <module>clients</module>
         <module>amqp</module>
         <module>apigw</module>
