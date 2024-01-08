@@ -2,8 +2,10 @@ package com.educ.customer;
 
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.educ.amqp.RabbitMQMessageProducer;
+import org.educ.clients.fraud.FraudClient;
+import org.educ.clients.notification.NotificationRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import javax.persistence.EntityNotFoundException;
 
@@ -13,29 +15,38 @@ import javax.persistence.EntityNotFoundException;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
-    private final RestTemplate restTemplate;
+    private final FraudClient fraudClient;
+    private final RabbitMQMessageProducer rabbitMQMessageProducer;
 
-    public void registerCustomer(CustomerRegistrationRequest customerRegistrationRequest) {
+    public void registerCustomer(CustomerRegistrationRequest request) {
         Customer customer = Customer.builder()
-                .firstName(customerRegistrationRequest.firstName())
-                .lastName(customerRegistrationRequest.lastName())
-                .email(customerRegistrationRequest.email())
+                .firstName(request.firstName())
+                .lastName(request.lastName())
+                .email(request.email())
                 .build();
-
+        // todo: check if email valid
+        // todo: check if email not taken
         customerRepository.saveAndFlush(customer);
-        // todo: check if email right
-        // todo: check if fraudster
-        FraudCheckResponse fraudCheckResponse = restTemplate.getForObject(
-          "http://FRAUD/api/v1/fraud-check/{customerId}",
-                FraudCheckResponse.class,
-                customer.getId()
-        );
+
+        org.educ.clients.fraud.FraudCheckResponse fraudCheckResponse =
+                fraudClient.isFraudster(customer.getId());
 
         if (fraudCheckResponse.isFraudster()) {
             log.info("customer with id {} fraudster", customer.getId());
         }
 
-        // todo: send notification
+        NotificationRequest notificationRequest = new NotificationRequest(
+                customer.getId(),
+                customer.getEmail(),
+                String.format("Hi %s, welcome to Amigoscode...",
+                        customer.getFirstName())
+        );
+        rabbitMQMessageProducer.publish(
+                notificationRequest,
+                "internal.exchange",
+                "internal.notification.routing-key"
+        );
+
     }
 
     public Customer getById(int customerId) {
